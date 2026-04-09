@@ -1,0 +1,35 @@
+# --- Web Framework ---
+fastapi                 # For creating the main API server
+uvicorn[standard]       # The server that runs the FastAPI application
+
+# --- Database & ORM ---
+sqlalchemy              # The core ORM for talking to PostgreSQL
+alembic                 # For handling database migrations
+psycopg2-binary         # The driver to connect Python to your PostgreSQL database
+
+# --- AI & Agent Framework ---
+langchain               # Core dependency for most agentic frameworks
+langgraph               # The powerful agent state machine framework from LangChain
+langchain-community     # Community integrations
+langchain-openai        # For using OpenAI models (even though we start with Ollama)
+langchain-google-genai  # For using Gemini Flash
+ollama                  # The official Python client for interacting with a local Ollama server
+
+# --- Data Pipeline & Big Data ---
+pyspark                 # The Python library for Apache Spark
+kafka-python            # A Python client for producing/consuming messages with Kafka
+pymilvus                # The Python client for the Milvus vector database
+qdrant-client           # The official Python client for Qdrant
+
+# --- Utilities ---
+python-dotenv           # For loading secrets from your .env file
+requests                # Standard for making HTTP requests (e.g., to Gmail API)
+google-api-python-client # Google's official library for APIs like Gmail
+google-auth-oauthlib    # For handling Gmail's OAuth2 authentication
+pydantic                # For data validation and settings management (used by FastAPI)
+
+python-dateutil
+
+python-jose[cryptography]
+google-auth 
+cryptography
