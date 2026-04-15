@@ -1,3 +1,13 @@
+# Frontend
+node_modules/
+dist/
+build/
+.next/
+
+# Env files
+.env
+.env.local
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 mailenv/

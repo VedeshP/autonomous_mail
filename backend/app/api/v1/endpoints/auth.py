@@ -140,7 +140,7 @@ def gmail_callback(request: Request, state: str, code: str, db: Session = Depend
         exchange_code_and_save_tokens(db=db, code=code, user_id=user_id)
         
         # Redirect the user back to the frontend dashboard
-        return RedirectResponse(url="http://localhost:3000?gmail_connected=true")
+        return RedirectResponse(url="http://localhost:5173?gmail_connected=true")
         
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to connect Gmail: {str(e)}")
