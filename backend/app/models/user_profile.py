@@ -1,3 +1,4 @@
+#backend/app/models/user_profile.py
 import uuid
 from sqlalchemy import Column, Integer, String, ForeignKey, JSON, UUID
 from sqlalchemy.orm import relationship
