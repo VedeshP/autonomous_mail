@@ -1,3 +1,4 @@
+#backend/app/schemas/email.py
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional
