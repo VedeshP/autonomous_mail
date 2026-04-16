@@ -1,3 +1,4 @@
+#backend/app/models/email.py
 # Update your existing email.py file
 import uuid
 from sqlalchemy import Column, Integer, String, DateTime, ARRAY, Boolean, ForeignKey, UUID
