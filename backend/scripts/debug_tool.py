@@ -1,3 +1,5 @@
+#backend/scripts/debug_tool.py
+
 import sys
 import os
 
