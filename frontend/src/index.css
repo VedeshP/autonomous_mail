@@ -1,0 +1,68 @@
+/* =============================================
+   AetherMail — Global Design System
+   ============================================= */
+
+/* ---------- Reset & Base ---------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-primary:    #0f0f11;
+  --bg-secondary:  #1a1a1f;
+  --bg-tertiary:   #222228;
+  --bg-hover:      #2a2a32;
+  --bg-card:       #1e1e26;
+
+  --surface-glass: rgba(255,255,255,0.04);
+  --surface-glow:  rgba(167,139,250,0.08);
+
+  --border:        rgba(255,255,255,0.08);
+  --border-active: rgba(167,139,250,0.4);
+
+  --text-primary:   #e8e8f0;
+  --text-secondary: #9090a8;
+  --text-muted:     #55556a;
+
+  --violet:  #a78bfa;
+  --blue:    #60a5fa;
+  --teal:    #2dd4bf;
+  --pink:    #f472b6;
+
+  --gradient-brand: linear-gradient(135deg, #a78bfa, #60a5fa);
+  --gradient-glow:  linear-gradient(135deg, rgba(167,139,250,0.3), rgba(96,165,250,0.3));
+
+  --sidebar-width: 270px;
+  --topbar-h: 60px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --t-fast: 0.15s ease;
+  --t-mid:  0.25s ease;
+  --t-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Google Sans', 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar { width: 5px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+button { cursor: pointer; font-family: inherit; }

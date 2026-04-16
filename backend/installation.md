@@ -78,3 +78,7 @@ curl -H "Authorization: Bearer <YOUR_JWT_TOKEN>" http://localhost:8000/api/v1/au
 
 ### read hdfs 
 /usr/local/spark/bin/spark-submit scripts/read_hdfs.py
+
+
+### topic creation kafka 
+```docker exec -it kafka kafka-topics --create --topic raw_emails --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1```

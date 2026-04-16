@@ -30,27 +30,51 @@ services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper
+    user: "0:0" 
+    restart: always
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
 
   # 4. Kafka Message Broker
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
+    user: "0:0"
+    restart: always
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092" # Port for your Python app (running outside Docker) to connect
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      # This is critical: allows both Docker containers and your local machine to connect
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-init
+    depends_on:
+      - kafka
+    # This command pings Kafka until it's awake, then creates the topics, then exits.
+    command: >
+      bash -c "
+      echo 'Waiting for Kafka to be ready...' &&
+      cub kafka-ready -b kafka:29092 1 30 &&
+      echo 'Kafka is ready. Creating topics...' &&
+      kafka-topics --create --if-not-exists --topic raw_emails --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+      kafka-topics --create --if-not-exists --topic bulk_actions --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+      echo 'Topics created successfully.'
+      "
+    
   # 5. Spark Master Node
   spark-master:
     image: apache/spark:3.5.1
@@ -72,3 +96,6 @@ services:
 volumes:
   postgres_data:
   qdrant_data:
+  kafka_data:
+  zookeeper_data:
+  zookeeper_log:
