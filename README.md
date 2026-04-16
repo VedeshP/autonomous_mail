@@ -435,15 +435,13 @@ curl -X POST "http://localhost:8000/api/v1/agent/execute" \
         <sub><b>Vedesh Pandya</b></sub>
       </a>
     </td>
-<!--
-<td align="center">
-  <a href="https://github.com/chetangadhiya5062">
-    <img src="https://github.com/chetangadhiya5062.png" width="100px;" alt=""/>
-    <br />
-    <sub><b>Chetan Gadhiya</b></sub>
-  </a>
-</td>
--->
+    <td align="center">
+      <a href="https://github.com/chetangadhiya5062">
+        <img src="https://github.com/chetangadhiya5062.png" width="100px;" alt=""/>
+        <br />
+        <sub><b>Chetan Gadhiya</b></sub>
+      </a>
+    </td>
     <td align="center">
       <a href="https://github.com/piyush-2k5">
         <img src="https://github.com/piyush-2k5.png" width="100px;" alt=""/>
