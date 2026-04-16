@@ -1,3 +1,4 @@
+#backend/scripts/truncate_json.py
 import json
 import os
 
