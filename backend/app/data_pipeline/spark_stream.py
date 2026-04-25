@@ -4,6 +4,7 @@ import os
 import sys
 import json
 import requests
+import re
 
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, from_json, udf
@@ -67,22 +68,49 @@ parse_udf = udf(parse_and_clean_email, StringType())
 # ADD THIS NEW FUNCTION
 def get_embedding(text_chunk):
     """Calls local Ollama server to get vector embedding for a string of text."""
-    if not text_chunk:
+    if not text_chunk or not text_chunk.strip():
         return None
+        
     try:
+        # --- 1. THE IMAGE SCRUBBER ---
+        # Remove any inline base64 image data strings. 
+        # These look like: data:image/png;base64,iVBO...
+        clean_text = re.sub(r'data:image\/[^;]+;base64,[a-zA-Z0-9+/]+=*', '', text_chunk)
+        
+        # --- 2. THE URL SCRUBBER ---
+        # Remove massive tracking URLs (common in newsletters)
+        clean_text = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', clean_text)
+
+        # --- 3. THE GIBBERISH SCRUBBER ---
+        # Remove any continuous string of characters longer than 50 with no spaces
+        # (This catches any Base64 data that snuck past the image scrubber)
+        clean_text = re.sub(r'\b\S{50,}\b', '', clean_text)
+        
+        # --- 4. SANITIZE & TRUNCATE ---
+        clean_text = ''.join(c for c in clean_text if c.isprintable() or c in ['\n', ' '])
+        safe_text = clean_text[:4000].strip()
+
+        if not safe_text or len(safe_text) < 10:
+            # If after scrubbing there is almost no text left, don't bother embedding it
+            return None
+
         url = "http://localhost:11434/api/embeddings"
         payload = {
             "model": "nomic-embed-text",
-            "prompt": text_chunk
+            "prompt": safe_text 
         }
-        response = requests.post(url, json=payload)
+        
+        response = requests.post(url, json=payload, timeout=20) 
         response.raise_for_status()
-        # Returns a list of 768 floats
+        
         return response.json().get("embedding")
-    except Exception as e:
-        print(f"Embedding failed: {e}")
+        
+    except requests.exceptions.ReadTimeout:
+        print("Embedding timed out.")
         return None
-
+    except Exception as e:
+        print(f"Embedding failed. Error: {str(e)[:100]}")
+        return None
 
 # We use ArrayType(FloatType()) because it returns a list of numbers
 from pyspark.sql.types import ArrayType, FloatType
@@ -128,9 +156,27 @@ def start_streaming():
         StructField("error", StringType(), True)
     ])
 
-    final_df = cleaned_df.withColumn("parsed", from_json(col("clean_json"), clean_schema)) \
-                         .select("parsed.*") \
-                         .filter(col("error").isNull())
+    # final_df = cleaned_df.withColumn("parsed", from_json(col("clean_json"), clean_schema)) \
+    #                      .select("parsed.*") \
+    #                      .filter(col("error").isNull())
+    
+    parsed_df = cleaned_df.withColumn("parsed", from_json(col("clean_json"), clean_schema)).select("parsed.*")
+    
+    # --- SPLIT THE STREAM FOR MONITORING ---
+    # 1. The Good Data
+    success_df = parsed_df.filter(col("error").isNull())
+    # 2. The Bad Data (This is where your 100 emails are probably going!)
+    failed_df = parsed_df.filter(col("error").isNotNull())
+
+    def process_failures(df, batch_id):
+        row_count = df.count()
+        if row_count > 0:
+            print(f"\n==========================================================")
+            print(f" [CRITICAL ALERT] {row_count} EMAILS FAILED PARSING IN BATCH {batch_id}!")
+            print(f"==========================================================")
+            # This will print the EXACT Python error message from our parser
+            df.select("gmail_id", "error").show(truncate=False)
+        
 
     # --- 5. ACTION (Write the Data) ---
     def process_batch(df, batch_id):
@@ -144,23 +190,73 @@ def start_streaming():
             # --- ACTION A: PostgreSQL ---
             db_df = df.select("owner_id", "gmail_id", "thread_id", "sender", "recipient", "subject", "date_received", "snippet")
             try:
-                from pyspark.sql.functions import lit
-                # db_df = db_df.withColumn("owner_id", lit("3c1a96ad-d823-481d-846c-03be83909f3a")) # <-- REPLACE THIS AGAIN!
-
-                db_url = f"jdbc:postgresql://{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
-                
-                db_df.write \
-                    .format("jdbc") \
-                    .option("url", db_url) \
-                    .option("dbtable", "emails") \
-                    .option("user", settings.POSTGRES_USER) \
-                    .option("password", settings.POSTGRES_PASSWORD) \
-                    .option("driver", "org.postgresql.Driver") \
-                    .mode("append") \
-                    .save()
-                print(" Batch metadata written to PostgreSQL.")
+                records = db_df.collect()
+                if records:
+                    import psycopg2
+                    from psycopg2.extras import execute_values
+                    import uuid # <-- Make sure this is imported!
+                    
+                    conn = psycopg2.connect(
+                        dbname=settings.POSTGRES_DB,
+                        user=settings.POSTGRES_USER,
+                        password=settings.POSTGRES_PASSWORD,
+                        host=settings.POSTGRES_HOST,
+                        port=settings.POSTGRES_PORT
+                    )
+                    cursor = conn.cursor()
+                    
+                    insert_query = """
+                        INSERT INTO emails (owner_id, gmail_id, thread_id, sender, recipient, subject, date_received, snippet)
+                        VALUES %s
+                        ON CONFLICT (gmail_id) DO UPDATE SET
+                            thread_id = EXCLUDED.thread_id,
+                            sender = EXCLUDED.sender,
+                            recipient = EXCLUDED.recipient,
+                            subject = EXCLUDED.subject,
+                            date_received = EXCLUDED.date_received,
+                            snippet = EXCLUDED.snippet;
+                    """
+                    
+                    values = [
+                        (
+                            r.owner_id, 
+                            r.gmail_id, 
+                            r.thread_id, 
+                            r.sender, 
+                            r.recipient, 
+                            r.subject, 
+                            r.date_received, 
+                            r.snippet
+                        )
+                        for r in records
+                    ]
+                    
+                    execute_values(cursor, insert_query, values)
+                    conn.commit()
+                    cursor.close()
+                    conn.close()
+                    
+                    print(" [JDBC] Metadata UPSERTED to PostgreSQL.")
+                    
             except Exception as e:
-                print(f" Failed to write to Postgres: {e}")
+                print(f" [JDBC ERROR] Failed to write to Postgres: {str(e)[:200]}...")
+            #     from pyspark.sql.functions import lit
+            #     # db_df = db_df.withColumn("owner_id", lit("3c1a96ad-d823-481d-846c-03be83909f3a")) # <-- REPLACE THIS AGAIN!
+
+            #     db_url = f"jdbc:postgresql://{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}?stringtype=unspecified"
+                
+            #     db_df.write \
+            #         .format("jdbc") \
+            #         .option("url", db_url) \
+            #         .option("dbtable", "emails") \
+            #         .option("user", settings.POSTGRES_USER) \
+            #         .option("password", settings.POSTGRES_PASSWORD) \
+            #         .option("driver", "org.postgresql.Driver") \
+            #         .mode("append") \
+            #         .save()
+            #     print("[JDBC] Batch metadata written to PostgreSQL.")
+            # except Exception as e:
+            #     print(f"[JDBC ERROR] Failed to write to Postgres: {str(e)[:200]}...")
 
             # --- ACTION B: Write Raw Data to REAL HDFS! ---
             try:
@@ -173,9 +269,9 @@ def start_streaming():
                     col("encrypted_body").alias("body_text") # Rename it back so the schema stays consistent
                 ).write.mode("append").parquet("hdfs://localhost:9000/aethermail/raw_emails")
                 
-                print(" Batch encrypted and written to HDFS!")
+                print(" [HDFS] Batch encrypted and written to HDFS!")
             except Exception as e:
-                 print(f" Failed to write to HDFS: {e}")
+                 print(f" [HDFS ERROR] Failed to write to HDFS: {str(e)[:200]}...")
                 
             # --- ACTION C: Generate Embeddings and write to Qdrant --- 
             try:
@@ -197,11 +293,12 @@ def start_streaming():
                 # We apply the embed_udf to the body_text column.
                 # In production with long emails, we would CHUNK the text first. 
                 # For this test, we embed the snippet to save time.
-                embedded_df = df.withColumn("vector", embed_udf(col("snippet")))
+                embedded_df = df.withColumn("vector", embed_udf(col("body_text")))
 
+                valid_embeddings_df = embedded_df.filter(col("vector").isNotNull())
                 # 3. Collect the data to the master node to insert into Qdrant
                 # (Note: In a huge cluster, you'd use df.foreachPartition to distribute the writes)
-                records = embedded_df.select("gmail_id", "vector", "sender", "subject", "date_received").collect()
+                records = valid_embeddings_df.select("gmail_id", "vector", "sender", "subject", "date_received", "snippet").collect()
                 
                 points = []
                 import uuid
@@ -216,7 +313,8 @@ def start_streaming():
                                     "gmail_id": row["gmail_id"],
                                     "sender": row["sender"],
                                     "subject": row["subject"],
-                                    "date_received": row["date_received"]
+                                    "date_received": row["date_received"],
+                                    "snippet": row["snippet"]
                                 }
                             )
                         )
@@ -228,13 +326,20 @@ def start_streaming():
             except Exception as e:
                 print(f" Failed to write to Qdrant: {e}")
 
-    query = final_df.writeStream \
+    query_success = success_df.writeStream \
         .foreachBatch(process_batch) \
         .trigger(processingTime='5 seconds') \
         .start()
 
-    print(" Spark Streaming is live and waiting for emails...")
-    query.awaitTermination()
+    query_failures = failed_df.writeStream \
+        .foreachBatch(process_failures) \
+        .trigger(processingTime='5 seconds') \
+        .start()
+
+    print(" High-Performance Spark Streaming is live. Monitoring for errors...")
+    
+    # Keep the application running
+    spark.streams.awaitAnyTermination()
 
 if __name__ == "__main__":
     start_streaming()

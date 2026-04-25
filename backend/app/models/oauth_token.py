@@ -1,6 +1,6 @@
 # backend/app/models/oauth_token.py
 import uuid
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, UUID
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, UUID, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from app.db.base import Base
@@ -8,8 +8,8 @@ from app.db.base import Base
 class OAuthToken(Base):
     __tablename__ = "oauth_tokens"
 
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True, index=True, default=uuid.uuid4)
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), index=True)
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True, index=True)
 
     # --- Token Fields ---
     # These are encrypted before being stored in the DB

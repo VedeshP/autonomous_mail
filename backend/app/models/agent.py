@@ -1,7 +1,7 @@
 #backend/app/models/agent.py
 import uuid
 import enum
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Enum, UUID
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Enum, UUID, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -16,8 +16,8 @@ class TaskStatus(enum.Enum):
 class AgentTask(Base):
     __tablename__ = "agent_tasks"
 
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True, default=uuid.uuid4)
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), index=True)
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
 
     prompt = Column(Text, nullable=False)
     status = Column(Enum(TaskStatus), nullable=False, default=TaskStatus.PENDING)
@@ -42,8 +42,8 @@ class ActionType(enum.Enum):
 class ActionLog(Base):
     __tablename__ = "action_logs"
 
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
-    task_id = Column(PG_UUID(as_uuid=True), ForeignKey("agent_tasks.id"), nullable=False, index=True, default=uuid.uuid4)
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), index=True)
+    task_id = Column(PG_UUID(as_uuid=True), ForeignKey("agent_tasks.id"), nullable=False, index=True)
 
     action_type = Column(Enum(ActionType), nullable=False)
     target_id = Column(String, nullable=True, comment="e.g., the gmail_id of the email")

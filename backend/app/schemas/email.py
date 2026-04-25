@@ -11,7 +11,7 @@ class EmailBase(BaseModel):
     recipient: str = Field(..., description="The To header")
     subject: str = Field(..., description="The Subject header")
     date_received: datetime = Field(..., description="Parsed from internalDate")
-    labels: List[str] = Field(default=[], description="List of Gmail labels")
+    labels: Optional[List[str]] = Field(default=[], description="List of Gmail labels")
     snippet: str = Field(..., description="Short preview text")
 
 class EmailCreate(EmailBase):

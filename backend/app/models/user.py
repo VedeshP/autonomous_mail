@@ -1,6 +1,6 @@
 # backend/app/models/user.py
 import uuid
-from sqlalchemy import Column, Integer, String, Boolean, UUID
+from sqlalchemy import Column, Integer, String, Boolean, UUID, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from app.db.base import Base
@@ -8,7 +8,7 @@ from app.db.base import Base
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), index=True)
     
     # --- Google OAuth Specific Fields ---
     google_sub = Column(String, unique=True, index=True, nullable=False, comment="Google's unique user ID (the 'sub' claim)")

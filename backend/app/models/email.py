@@ -1,7 +1,7 @@
 #backend/app/models/email.py
 # Update your existing email.py file
 import uuid
-from sqlalchemy import Column, Integer, String, DateTime, ARRAY, Boolean, ForeignKey, UUID
+from sqlalchemy import Column, Integer, String, DateTime, ARRAY, Boolean, ForeignKey, UUID, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from app.db.base import Base
@@ -9,9 +9,9 @@ from app.db.base import Base
 class Email(Base):
     __tablename__ = "emails"
 
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), index=True)
     # This is the foreign key linking to the users table
-    owner_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True, default=uuid.uuid4)
+    owner_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
 
     gmail_id = Column(String, unique=True, index=True, nullable=False)
     thread_id = Column(String, index=True, nullable=False)

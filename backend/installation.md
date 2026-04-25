@@ -10,7 +10,9 @@ docker-compose up -d
 
 
 # run command for postgre terminal
-```docker exec -it postgres-db psql -U vedeshp -d mail_db```
+```
+docker exec -it postgres-db psql -U vedeshp -d mail_db
+```
 
 above is my username and database name
     
@@ -82,3 +84,62 @@ curl -H "Authorization: Bearer <YOUR_JWT_TOKEN>" http://localhost:8000/api/v1/au
 
 ### topic creation kafka 
 ```docker exec -it kafka kafka-topics --create --topic raw_emails --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1```
+
+
+### Clean slate restart stuff - do not do this - do only if you know it is necessary
+
+```
+hdfs dfs -rm -r /aethermail/raw_emails/*
+```
+
+```
+curl -X DELETE http://localhost:6333/collections/emails
+```
+
+```
+docker exec -it postgres-db psql -U aethermail_user -d aethermail_db -c "TRUNCATE TABLE emails, agent_tasks, action_logs, agent_thoughts CASCADE;"
+```
+
+
+### docker volume 
+
+docker volume ls | grep kafka
+
+
+### kafka data delete
+
+before run 
+
+```
+docker compose down
+```
+```
+docker volume rm backend_kafka_data
+```
+
+### delete spark memory 
+
+```
+sudo rm -rf /tmp/spark-checkpoints
+```
+
+### other delete commands for reset
+
+```
+# 1. Stop and remove all containers defined in the file.
+docker-compose down
+
+# 2. Delete the NAMED volumes for Kafka and Zookeeper.
+docker volume rm backend_kafka_data backend_zookeeper_data backend_zookeeper_log
+
+# 3. Delete the BIND MOUNT folders for Postgres and Qdrant.
+# This is why 'docker volume rm' failed before!
+sudo rm -rf ./postgres_data
+sudo rm -rf ./qdrant_data
+
+# 4. Delete Spark's memory of the Kafka queue.
+sudo rm -rf /tmp/spark-checkpoints
+
+# 5. Kill any lingering Ollama process.
+pkill ollama
+```

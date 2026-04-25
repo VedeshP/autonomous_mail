@@ -1,6 +1,6 @@
 # backend/app/models/agent_thought.py
 import uuid
-from sqlalchemy import Column, Integer, Text, ForeignKey, String, UUID
+from sqlalchemy import Column, Integer, Text, ForeignKey, String, UUID, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from app.db.base import Base
@@ -8,9 +8,9 @@ from app.db.base import Base
 class AgentThought(Base):
     __tablename__ = "agent_thoughts"
     
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), index=True)
     # Each thought belongs to a specific step (ActionLog) in a task
-    action_log_id = Column(PG_UUID(as_uuid=True), ForeignKey("action_logs.id"), nullable=False, index=True, default=uuid.uuid4)
+    action_log_id = Column(PG_UUID(as_uuid=True), ForeignKey("action_logs.id"), nullable=False, index=True)
     
     # The actual "chain of thought" text
     thought_process = Column(Text, nullable=False, comment="The reasoning or observation made by the agent at this step.")

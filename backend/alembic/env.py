@@ -5,7 +5,7 @@ from logging.config import fileConfig
 from dotenv import load_dotenv
 load_dotenv()
 
-from sqlalchemy import engine_from_config
+from sqlalchemy import engine_from_config, text
 from sqlalchemy import pool
 
 from alembic import context
@@ -85,6 +85,11 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        # --- THE FIX ---
+        # Before running any migrations, ensure the pgcrypto extension is enabled.
+        # This gives us access to the gen_random_uuid() function in PostgreSQL.
+        # connection.execute(text('CREATE EXTENSION IF NOT EXISTS "pgcrypto"'))
+        # ---------------
         context.configure(
             connection=connection, target_metadata=target_metadata
         )

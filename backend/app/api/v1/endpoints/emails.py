@@ -15,13 +15,26 @@ router = APIRouter()
 def read_emails(
     skip: int = 0, 
     limit: int = 100, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user) # Protect the endpoint!
 ):
     """
-    Retrieve emails. For now, we just grab everything to test the connection.
-    Later, we will filter this by the authenticated user's ID.
+    Retrieve emails belonging only to the authenticated user.
     """
-    emails = db.query(Email).offset(skip).limit(limit).all()
+    # Filter strictly by owner_id
+    emails = db.query(Email)\
+        .filter(Email.owner_id == current_user.id)\
+        .order_by(Email.date_received.desc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
+        
+    # Safety check: SQLAlchemy might return None for the labels array,
+    # but our Pydantic schema expects a list.
+    for email in emails:
+        if email.labels is None:
+            email.labels = []
+            
     return emails
 
 
